@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,8 +9,9 @@ import 'package:paso_a_paso/src/providers/proveedor_navegacion.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Carga manual del archivo .env
- dotenv.testLoad(fileInput: File('.env').readAsStringSync());
+
+await dotenv.load(fileName: ".env");
+
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
