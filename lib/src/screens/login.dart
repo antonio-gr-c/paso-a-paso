@@ -1,90 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/proveedor_navegacion.dart';
+import '../providers/proveedor_autenticacion.dart';
 
-class Login extends StatefulWidget {
+
+class Login extends StatelessWidget {
   const Login({super.key});
 
   @override
-  State<Login> createState() => _LoginState();
-}
-
-class _LoginState extends State<Login> {
-  final _correoCtrl = TextEditingController();
-  final _contrasenaCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool cargando = false;
-
-  Future<void> iniciarSesion() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => cargando = true);
-
-    try {
-      final res = await Supabase.instance.client.auth.signInWithPassword(
-        email: _correoCtrl.text.trim(),
-        password: _contrasenaCtrl.text,
-      );
-
-      if (res.user != null) {
-        // Usuario autenticado correctamente
-        Provider.of<ProveedorNavegacion>(context, listen: false).cambiarPantalla(0);
-      }
-    } catch (e) {
-  mostrarError('Error al iniciar sesión: ${e.toString()}');
-}
-
-    setState(() => cargando = false);
-  }
-
-  void mostrarError(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // Provider para la navegación
+    final nav = context.read<ProveedorNavegacion>();
+    // Provider para la autenticación (login/registro)
+    final auth = context.watch<ProveedorAutenticacion>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Iniciar sesión')),
       body: Padding(
         padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _correoCtrl,
-                decoration: const InputDecoration(labelText: 'Correo electrónico'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (valor) =>
-                    valor != null && valor.contains('@') ? null : 'Correo inválido',
+        child: Column(
+          children: [
+            TextFormField(
+              initialValue: auth.correo,
+              onChanged: auth.actualizarCorreo,
+              decoration: const InputDecoration(labelText: 'Correo electrónico'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            TextFormField(
+              initialValue: auth.contrasena,
+              onChanged: auth.actualizarContrasena,
+              decoration: const InputDecoration(labelText: 'Contraseña'),
+              obscureText: true,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: auth.cargando
+                  ? null
+                  : () => auth.login(nav), // Pasamos nav para irAInicio()
+              child: auth.cargando
+                  ? const CircularProgressIndicator()
+                  : const Text('Entrar'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: nav.irARegistro,
+              child: const Text('¿No tienes cuenta? Regístrate'),
+            ),
+            if (auth.error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Text(auth.error, style: const TextStyle(color: Colors.red)),
               ),
-              TextFormField(
-                controller: _contrasenaCtrl,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator: (valor) =>
-                    valor != null && valor.length >= 6 ? null : 'Mínimo 6 caracteres',
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: cargando ? null : iniciarSesion,
-                child: cargando
-                    ? const CircularProgressIndicator()
-                    : const Text('Entrar'),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Provider.of<ProveedorNavegacion>(context, listen: false)
-                      .cambiarPantalla(5); // Ir a registro
-                },
-                child: const Text('¿No tienes cuenta? Regístrate'),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

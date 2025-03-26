@@ -9,8 +9,8 @@ import 'registro_diario.dart';
 import 'recorrido.dart';
 import 'historial.dart';
 import 'perfil.dart';
-import 'login.dart'; // 👈 nuevo import
-import 'registro.dart'; // 👈 nuevo import
+import 'login.dart';
+import 'registro.dart';
 
 class Inicio extends StatefulWidget {
   const Inicio({super.key});
@@ -28,19 +28,17 @@ class _InicioState extends State<Inicio> {
 
   void verificarSesion() {
     final usuario = Supabase.instance.client.auth.currentUser;
-
     if (usuario == null) {
-      // Si no hay usuario logueado, vamos a la pantalla de login (índice 4)
       Future.microtask(() {
-        Provider.of<ProveedorNavegacion>(context, listen: false)
-            .cambiarPantalla(4);
+        Provider.of<ProveedorNavegacion>(context, listen: false).cambiarPantalla(4);
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final indiceActual = Provider.of<ProveedorNavegacion>(context).indiceActual;
+    final nav = Provider.of<ProveedorNavegacion>(context);
+    final indiceActual = nav.indiceActual;
 
     final pantallas = [
       const RegistroDiario(),
@@ -49,13 +47,40 @@ class _InicioState extends State<Inicio> {
       const Perfil(),
       const Login(),    // índice 4
       const Registro(), // índice 5
+ 
     ];
 
-    // Nota: No mostramos la barra de navegación si estamos en login o registro
     final mostrarNav = indiceActual < 4;
 
     return Scaffold(
-      body: pantallas[indiceActual],
+      body: GestureDetector(
+        // 1. Gesture para swipe horizontal
+        onHorizontalDragEnd: (details) {
+  if (details.primaryVelocity != null) {
+    if (details.primaryVelocity! < 0) {
+      // Swipe left => siguiente índice si está entre [0..2]
+      if (indiceActual < 3) nav.cambiarPantalla(indiceActual + 1);
+    } else if (details.primaryVelocity! > 0) {
+      // Swipe right => índice anterior si está entre [1..3]
+      if (indiceActual > 0 && indiceActual < 4) {
+        nav.cambiarPantalla(indiceActual - 1);
+      }
+    }
+  }
+},
+
+// En lugar de onDoubleTap, usamos onLongPress
+onLongPress: () {
+  if (indiceActual < 4) {
+    nav.cambiarPantalla(3); // Ir a perfil
+  }
+},
+
+
+        // El contenido real: la pantalla en curso
+        child: pantallas[indiceActual],
+      ),
+
       bottomNavigationBar: mostrarNav ? const BarraNavegacionInferior() : null,
     );
   }

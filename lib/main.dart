@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:paso_a_paso/src/providers/proveedor_autenticacion.dart';
+import 'package:paso_a_paso/src/providers/proveedor_recorrido.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:paso_a_paso/src/screens/inicio.dart';
 import 'package:paso_a_paso/src/providers/proveedor_navegacion.dart';
+import 'package:paso_a_paso/src/providers/proveedor_perfil.dart'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-
-await dotenv.load(fileName: ".env");
-
+  await dotenv.load(fileName: ".env");
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
@@ -19,12 +20,18 @@ await dotenv.load(fileName: ".env");
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ProveedorNavegacion(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProveedorNavegacion()),
+        ChangeNotifierProvider(create: (_) => ProveedorPerfil()),
+         ChangeNotifierProvider(create: (_) => ProveedorRecorrido()),
+         ChangeNotifierProvider(create: (_) => ProveedorAutenticacion()),
+      ],
       child: const AplicacionPasoAPaso(),
     ),
   );
 }
+
 
 
 class AplicacionPasoAPaso extends StatelessWidget {

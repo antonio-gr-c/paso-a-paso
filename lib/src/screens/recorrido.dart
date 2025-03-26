@@ -1,106 +1,131 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latLng;
+import 'package:provider/provider.dart';
 
-class Recorrido extends StatefulWidget {
+import '../providers/proveedor_recorrido.dart';
+
+class Recorrido extends StatelessWidget {
   const Recorrido({super.key});
 
   @override
-  State<Recorrido> createState() => _RecorridoState();
-}
-
-class _RecorridoState extends State<Recorrido> {
-  bool recorridoActivo = false;
-  Duration duracion = Duration.zero;
-  Timer? temporizador;
-
-  void iniciarRecorrido() {
-    setState(() {
-      recorridoActivo = true;
-      duracion = Duration.zero;
-    });
-
-    temporizador = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        duracion += const Duration(seconds: 1);
-      });
-    });
-  }
-
-  void terminarRecorrido() {
-    temporizador?.cancel();
-    setState(() {
-      recorridoActivo = false;
-    });
-
-    // Aquí luego se podrá guardar coordenadas y tiempo
-  }
-
-  String formatearDuracion(Duration d) {
-    String dosCifras(int n) => n.toString().padLeft(2, '0');
-    return "${dosCifras(d.inHours)}:${dosCifras(d.inMinutes.remainder(60))}:${dosCifras(d.inSeconds.remainder(60))}";
-  }
-
-  @override
-  void dispose() {
-    temporizador?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final recorridoProv = context.watch<ProveedorRecorrido>();
+
+    final markers = <Marker>[];
+    if (recorridoProv.latInicial != null && recorridoProv.lonInicial != null) {
+      markers.add(
+        Marker(
+          point: latLng.LatLng(
+            recorridoProv.latInicial!,
+            recorridoProv.lonInicial!,
+          ),
+          child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+        ),
+      );
+    }
+    if (recorridoProv.latFinal != null && recorridoProv.lonFinal != null) {
+      markers.add(
+        Marker(
+          point: latLng.LatLng(
+            recorridoProv.latFinal!,
+            recorridoProv.lonFinal!,
+          ),
+          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+        ),
+      );
+    }
+
+    final centerLat = recorridoProv.latInicial ?? 0.0;
+    final centerLon = recorridoProv.lonInicial ?? 0.0;
+    final enRecorrido = recorridoProv.enRecorrido;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recorrido'),
+        title: const Text('Recorrido con Mapa'),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Estado del recorrido
-            Text(
-              recorridoActivo ? 'Recorrido en curso' : 'Recorrido detenido',
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 20),
-            
-            // Temporizador centrado
-            Center(
-              child: Text(
-                formatearDuracion(duracion),
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: FlutterMap(
+              options: MapOptions(
+                center: latLng.LatLng(centerLat, centerLon),
+                zoom: 14.0,
+                 minZoom: 5.0, // Zoom mínimo
+    maxZoom: 18.0, // Zoom máximo
               ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.app',
+                ),
+                MarkerLayer(markers: markers),
+              ],
             ),
-
-            const SizedBox(height: 60),
-
-            // Botones de acción
-            Row(
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton.icon(
-                  onPressed: recorridoActivo ? null : iniciarRecorrido,
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Iniciar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                  onPressed: enRecorrido
+                      ? null
+                      : () async {
+                          try {
+                            await recorridoProv.iniciarRecorrido();
+                          } catch (e) {
+                            _mostrarError(context, e.toString());
+                          }
+                        },
                 ),
                 ElevatedButton.icon(
-                  onPressed: recorridoActivo ? terminarRecorrido : null,
                   icon: const Icon(Icons.stop),
                   label: const Text('Terminar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                  onPressed: enRecorrido
+                      ? () async {
+                          try {
+                            final dist = await recorridoProv.terminarRecorrido();
+                            _mostrarModalDistancia(context, dist);
+                          } catch (e) {
+                            _mostrarError(context, e.toString());
+                          }
+                        }
+                      : null,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarError(BuildContext context, String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+  }
+
+  void _mostrarModalDistancia(BuildContext context, double distancia) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Distancia recorrida',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text('${distancia.toStringAsFixed(2)} km'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
             ),
           ],
         ),

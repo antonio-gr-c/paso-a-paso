@@ -11,7 +11,7 @@ class BarraNavegacionInferior extends StatelessWidget {
     return BottomNavigationBar(
       currentIndex: proveedor.indiceActual,
       onTap: (indice) => proveedor.cambiarPantalla(indice),
-      selectedItemColor: Colors.teal[800],
+      selectedItemColor: const Color.fromARGB(255, 35, 105, 211),
       unselectedItemColor: Colors.grey,
       items: const [
         BottomNavigationBarItem(
